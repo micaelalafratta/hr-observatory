@@ -5,7 +5,7 @@
 > dimensions.
 
 ## Completeness
-
+### Completeness — categories
 **Salary (`salary_min` / `salary_max`):** in a test of 50 postings
 obtained via a broad search ("data", Spain, page 1 of the Adzuna API,
 July 6 2026), only 1 of 50 (2%) included salary data. The rest have the
@@ -17,6 +17,31 @@ opacity hypothesis that motivates this project.
 *Sample caveat: small, non-random sample (a single search, a single
 page). The percentage should be reassessed at higher volume once the
 full extractor is built and run across multiple categories.*
+
+### Completeness — search universe
+
+The dataset is scoped to four Adzuna categories (`it-jobs`, `hr-jobs`,
+`legal-jobs`, `consultancy-jobs`). This has known completeness limits
+that are documented rather than hidden:
+
+- **Data roles are dispersed.** Some data-analyst and data-related roles
+  are classified by employers under `accounting-finance-jobs`,
+  `scientific-qa-jobs`, or other categories not in scope. Those postings
+  are not captured in Phase 1.
+- **Governance roles split across categories.** DPO and compliance roles
+  appear in both `legal-jobs` and `consultancy-jobs`; some may also sit
+  in categories out of scope.
+- **Trade-off accepted:** Narrower scope reduces noise and keeps Phase 1
+  achievable in four weeks, at the cost of some recall. Scope is
+  expandable in Phase 2.
+
+### Completeness — relevance filtering
+
+Relevance (data / AI / governance) is filtered by bilingual keyword
+matching in the transform step. Spanish and English terms are both
+covered (e.g. "data governance" / "gobernanza de datos", "GDPR" / "RGPD")
+to avoid language-driven loss. Accent normalisation is applied before
+matching to prevent missed matches (e.g. "gestión" vs "gestion").
 
 ## Consistency
 
