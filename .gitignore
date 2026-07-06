@@ -1,0 +1,19 @@
+# Credenciales - NUNCA subir esto
+.env
+
+# Datos crudos (pueden pesar y no aportan valor en el repo público;
+# el valor está en el código que los genera, no en los archivos en sí)
+data/raw/*
+!data/raw/.gitkeep
+
+# Entornos Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Sistema
+.DS_Store
