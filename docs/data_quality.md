@@ -5,7 +5,7 @@
 > dimensions.
 
 ## Completeness
-### Completeness — categories
+### Completeness — categoriesa
 **Salary (`salary_min` / `salary_max`):** in a test of 50 postings
 obtained via a broad search ("data", Spain, page 1 of the Adzuna API,
 July 6 2026), only 1 of 50 (2%) included salary data. The rest have the
@@ -42,6 +42,21 @@ matching in the transform step. Spanish and English terms are both
 covered (e.g. "data governance" / "gobernanza de datos", "GDPR" / "RGPD")
 to avoid language-driven loss. Accent normalisation is applied before
 matching to prevent missed matches (e.g. "gestión" vs "gestion").
+
+### Completeness — extraction integrity
+
+The first full extraction (July 6 2026) is expected to produce 5 pages
+per category across 4 categories — 20 raw files. A file-count check per
+category is run after extraction to confirm no pages are missing before
+the transform step. This guards against silent data loss during the file
+operations involved in organising `data/raw/` (moving test files to
+`discarded/`, the category catalogue to `reference/`). Result: 20/20
+files confirmed present. See `data_lineage.md` for the extraction event.
+
+*Note on coverage vs. integrity: this check confirms that every page we
+asked for was saved — it does not claim the 5-page cap captures the full
+market. Per-category available volume is far higher; the cap is a Phase 1
+exploration limit, revisited in Phase 2.*
 
 ## Consistency
 

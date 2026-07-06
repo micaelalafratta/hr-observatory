@@ -10,6 +10,12 @@ Fields observed empirically in test calls (Spain, query "data",
 July 6 2026, n=10 then n=50). This list reflects what Adzuna *actually*
 returns, which does not fully match its public documentation.
 
+*Field-presence percentages below come from these early tests. The first
+full category-based extraction (4 categories × 5 pages, same day — see
+`data_lineage.md`) has since produced real volume; these percentages
+(especially salary presence) are to be re-measured against it during the
+Week-2 exploration before they are treated as settled.*
+
 ### id
 - **Type:** string
 - **Definition:** Adzuna's unique identifier for the job posting.
