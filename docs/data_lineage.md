@@ -4,6 +4,11 @@
 > this project. Organized chronologically by pipeline event, not by
 > field (see data_dictionary.md for field-level definitions).
 
+**Reference data note:** `adzuna_categories_{date}.json` is a one-off
+reference download of Adzuna's category catalogue for Spain. It is not
+job-posting data; it serves as evidence of the inclusion criteria (the
+four chosen categories) and is excluded from the transform step.
+
 ## 2026-07-06 — Adzuna connection test (n=10)
 
 - **Script:** `src/extract/adzuna_extract_test.py` (first version)
