@@ -125,3 +125,27 @@ returns, which does not fully match its public documentation.
   monitored once the full extractor runs across more categories and
   volume — it's unclear yet whether these fields are rare (like salary)
   or simply absent from this particular query.
+
+## Data source scope
+
+**Source:** Adzuna API — Spain (`country = "es"`)
+
+**Inclusion criteria:** Job postings are retrieved by Adzuna category,
+not by free-text keyword search. The search universe is defined by four
+categories:
+
+| Category tag       | Label (EN)              | Rationale for inclusion                          |
+|--------------------|-------------------------|--------------------------------------------------|
+| `it-jobs`          | IT jobs                 | Core technology and most data roles              |
+| `hr-jobs`          | HR jobs                 | Hiring-algorithm and labour-governance angle     |
+| `legal-jobs`       | Legal jobs              | DPO, compliance, data protection roles           |
+| `consultancy-jobs` | Consultancy jobs        | Data governance / compliance roles in consulting |
+
+**Excluded on purpose (Phase 1):** `accounting-finance-jobs` and
+`scientific-qa-jobs` also contain scattered data roles but were excluded
+to keep noise low for Phase 1. Candidates for inclusion in Phase 2.
+
+**Relevance filtering:** Category search casts a wide net. Data / AI /
+governance relevance is applied downstream in the transform step via
+bilingual (ES/EN) keyword filtering, not at the API level. See
+`data_quality.md` for completeness implications.
