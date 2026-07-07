@@ -5,7 +5,7 @@
 > dimensions.
 
 ## Completeness
-### Completeness — categoriesa
+### Completeness — categories
 **Salary (`salary_min` / `salary_max`):** in a test of 50 postings
 obtained via a broad search ("data", Spain, page 1 of the Adzuna API,
 July 6 2026), only 1 of 50 (2%) included salary data. The rest have the
