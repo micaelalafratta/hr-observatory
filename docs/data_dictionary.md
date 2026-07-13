@@ -6,6 +6,18 @@
 
 ## Source: Adzuna API — job search endpoint
 
+**Official reference:** the structure and field set below are confirmed
+against Adzuna's official API documentation — the job search endpoint
+(https://developer.adzuna.com/docs/search) and the salary predictor
+endpoint (https://developer.adzuna.com/docs/jobsworth). The response
+examples in those docs show the fields, their nesting (e.g. `location`
+with `area` + `display_name`, `category` with `label` + `tag`), and the
+`salary_is_predicted` flag. Definitions below are written in this
+project's own words from those examples plus the empirical extraction;
+Adzuna does not publish a per-field text glossary, so field meaning for
+un-annotated fields (e.g. `created` as publish date) is inferred from
+the field name and example values, and labelled as such where relevant.
+
 Fields observed empirically in test calls (Spain, query "data",
 July 6 2026, n=10 then n=50). This list reflects what Adzuna *actually*
 returns, which does not fully match its public documentation.
