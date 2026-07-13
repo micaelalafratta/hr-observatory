@@ -6,17 +6,23 @@
 
 ## Completeness
 ### Completeness — categories
-**Salary (`salary_min` / `salary_max`):** in a test of 50 postings
-obtained via a broad search ("data", Spain, page 1 of the Adzuna API,
-July 6 2026), only 1 of 50 (2%) included salary data. The rest have the
-field completely absent (not present as null — the key doesn't exist
-at all). This finding is consistent with an earlier test of 10 results,
-where 0 of 10 had salary data. It confirms the structural salary
-opacity hypothesis that motivates this project.
+**Salary (`salary_min` / `salary_max`):** present in 556/951 postings
+(58.46%) in the first full category extraction (n=951). Where absent,
+the key is omitted entirely (not returned as null). The two fields are
+always paired (556/556 identical).
 
-*Sample caveat: small, non-random sample (a single search, a single
-page). The percentage should be reassessed at higher volume once the
-full extractor is built and run across multiple categories.*
+*Superseded earlier figure:* an initial reading of ~2% (1/50 in an n=50
+test, 0/10 in an n=10 test) was based on samples too small for
+inference. It is NOT the project figure and should not be cited; it is
+retained in `data_lineage.md` as record. The real-volume figure is
+58.46%.
+
+*Important — presence is not the whole story:* a present salary is not
+confirmed to be employer-stated. See Accuracy below for why the 58.46%
+should be read as "carries a salary value with `salary_is_predicted = 0`,
+provenance unconfirmed" rather than as verified salary transparency. This
+is a completeness figure, not an accuracy claim — the two are documented
+separately on purpose.
 
 ### Completeness — search universe
 
@@ -58,6 +64,15 @@ asked for was saved — it does not claim the 5-page cap captures the full
 market. Per-category available volume is far higher; the cap is a Phase 1
 exploration limit, revisited in Phase 2.*
 
+*Per-category volume (n=951): `consultancy-jobs` 250, `hr-jobs` 250,
+`it-jobs` 250, `legal-jobs` 201. Three categories hit exactly 250 (the
+5-page cap), so the cap — not the market — limited them. `legal-jobs`
+returned 201, meaning it was exhausted before page 5: Adzuna had fewer
+than 250 postings for it at extraction time. So the cap is a self-imposed
+limit for three categories but the true available volume for `legal-jobs`.
+Any per-category comparison must account for this asymmetry. See
+`data_lineage.md`, "First structural exploration."*
+
 ## Consistency
 
 *Pending: to be documented once the transform step handles company
@@ -71,14 +86,49 @@ each source (Adzuna vs. quarterly EPA downloads vs. annual ILO index).*
 
 ## Accuracy
 
-**Geocoding (`latitude` / `longitude`):** present in roughly 50% of
-postings (25/50 in the July 6 2026 test). The remaining postings still
-include a textual/hierarchical location (the `location` field, always
-present), but without exact coordinates.
+**Geocoding (`latitude` / `longitude`):** present in 790/951 postings
+(83.07%) on n=951 — higher than the ~50% seen in the earlier n=50 test,
+which understated coverage. The remaining ~17% still include a
+textual/hierarchical location (the `location` field, always present),
+but without exact coordinates.
 
 **Implication:** any geographic analysis relying on lat/long will have
 partial coverage; analysis by autonomous community is more reliable if
 based on `location` rather than coordinates.
+
+**Salary provenance (`salary_min` / `salary_max` / `salary_is_predicted`):**
+this is the clearest completeness-vs-accuracy case in the project, and is
+documented in full because the distinction is the point.
+
+- **Completeness:** salary is present in 58.46% of postings (see above).
+- **Accuracy problem:** a present salary is not confirmed to be a figure
+  the employer stated in the posting. Three observations, in order of
+  confidence:
+  1. *Measured:* all 556 salaried postings carry
+     `salary_is_predicted = '0'` (string). None are flagged `1`.
+  2. *Inspected:* sample salaried postings show round, category-scaled
+     ranges (e.g. 60–80k, 70–90k, repeated within `consultancy-jobs` and
+     scaling with seniority), which is the shape of a derived category
+     range, not of irregular employer-stated figures.
+  3. *Documented (official source):* Adzuna's docs
+     (developer.adzuna.com/docs/jobsworth) confirm a Salary Predictor
+     exists and that `salary_is_predicted = 1` marks its estimates. The
+     docs do **not** define what a `0` value is — so a `0` cannot be
+     read as "employer-stated" on the strength of the documentation.
+- **Conclusion (what can honestly be claimed):** 58.46% of postings carry
+  a salary value with the predicted-flag at `0`. The nature of that value
+  is **not confirmed** and inspection suggests it may be
+  platform-derived. The project therefore treats `salary_min`/`salary_max`
+  as a platform-provided reference, not as verified employer-stated pay,
+  and does not publish "X% of employers disclose salary" as a finding.
+- **Where verified salary would live:** if the project later needs
+  genuinely employer-stated pay, the place to look is salary figures
+  written in the `description` text, not these structured fields — a
+  text-analysis task for a later phase, not Phase 1.
+
+*Note: this analysis reinforces the completeness ≠ accuracy principle. A
+field can be 58% complete and still 0% verifiable as what its name
+implies. Documenting the limit is the governance value, not hiding it.*
 
 ## Reliability of text-based analysis (description field)
 

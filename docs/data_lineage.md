@@ -139,3 +139,69 @@ without opening the file.
   number of available postings per category is far higher (see the
   n=10 connection test: ~20k results for a single query). Full-coverage
   extraction is a Phase 2 concern, to be discussed before changing.
+
+## 2026-07-13 — First structural exploration of the full extraction (n=951)
+
+- **Note on dating:** this event analyses the 2026-07-06 category
+  extraction, but is dated 2026-07-13 — the date the exploration was
+  actually run and committed to git. Lineage events are dated by when the
+  work happened (and was pushed), not by the date of the underlying data,
+  so the documentary record and the git history agree.
+
+- **Script:** exploration notebook in `notebooks/`, using pure helper
+  functions in `src/support/exploration_utils.py` (`get_nested`,
+  `classify`, `parse_filename`). Read-only over `data/raw/`; no
+  transformation, no schema, no writes to raw.
+- **Action:** Measured field presence across all 20 raw files from the
+  category extraction above, classifying every field per posting into
+  present / null / empty / absent, both globally and per category.
+- **Total volume confirmed:** 951 postings, verified directly (`id`
+  present in 951/951 — the total is read from the data, not inferred).
+- **Per-category distribution:**
+  - `consultancy-jobs`: 250
+  - `hr-jobs`: 250
+  - `it-jobs`: 250
+  - `legal-jobs`: 201
+- **Coverage finding (category exhaustion):** three categories returned
+  exactly 250 (= 5 pages × 50, the Phase 1 cap), meaning the cap — not
+  the market — limited them; more postings were available and left
+  uncollected by design. `legal-jobs` returned only 201, meaning it was
+  *exhausted* before page 5: Adzuna had fewer than 250 postings for it
+  at extraction time. So the 5-page cap is a self-imposed limit for
+  three categories but the true available volume for `legal-jobs`. This
+  distinction matters for any per-category comparison and is recorded
+  rather than assumed.
+- **Field-presence findings (n=951), replacing the earlier n=10 / n=50
+  test figures:**
+  - 100% present (951/951): `id`, `title`, `description`, `created`,
+    `location.display_name`, `location.area`, `category.label`,
+    `category.tag`, `salary_is_predicted`, `redirect_url`.
+  - `company.display_name`: 860/951 (90.43%) — NOT always present, as
+    the earlier tests had assumed. 91 postings carry no employer name.
+  - `salary_min` / `salary_max`: 556/951 (58.46%) each, always paired
+    (identical counts — Adzuna returns both or neither).
+  - `latitude` / `longitude`: 790/951 (83.07%) each — substantially
+    higher than the ~50% seen in the n=50 test.
+  - `contract_time`: 27/951 (2.84%). `contract_type`: 0/951 (0.00%).
+- **Structural finding (all gaps are `absent`, never `null`/`empty`):**
+  across every field, missing data means Adzuna omits the key entirely,
+  never returns it as null or empty. This has direct schema implications
+  for Phase 2 (an omitted key is not the same as an explicit null) and
+  is recorded here rather than assumed.
+- **Correction to the salary-opacity figure:** the earlier ~2% salary
+  presence was based on n=10 and n=50 exploratory samples — too small
+  for inference. It is superseded by 58.46% salary presence on n=951.
+  The ~2% is retained in this project's history as record, marked
+  superseded; it should not be cited as a project finding.
+- **Salary value nature (short form — full reasoning in
+  `data_quality.md`, Accuracy):** all 556 postings with a salary carry
+  `salary_is_predicted = '0'`. Inspection suggests these are
+  platform-derived category ranges, not employer-stated figures; Adzuna's
+  official docs confirm what a `1` means but not what a `0` means. The
+  figure is therefore documented as "58.46% carry a salary with the flag
+  at 0, provenance unconfirmed," not as employer-stated salary.
+- **Downstream impact:** these real-volume figures are what the Week-2
+  BigQuery schema design should use — salary columns sparse (~58%, of
+  uncertain provenance), `contract_type` effectively empty,
+  geocoordinates ~83%. `data_dictionary.md` and `data_quality.md` are
+  updated to reference this event.
