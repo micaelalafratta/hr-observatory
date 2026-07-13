@@ -193,13 +193,24 @@ without opening the file.
   for inference. It is superseded by 58.46% salary presence on n=951.
   The ~2% is retained in this project's history as record, marked
   superseded; it should not be cited as a project finding.
-- **Salary value nature (short form — full reasoning in
-  `data_quality.md`, Accuracy):** all 556 postings with a salary carry
-  `salary_is_predicted = '0'`. Inspection suggests these are
-  platform-derived category ranges, not employer-stated figures; Adzuna's
-  official docs confirm what a `1` means but not what a `0` means. The
-  figure is therefore documented as "58.46% carry a salary with the flag
-  at 0, provenance unconfirmed," not as employer-stated salary.
+- **Salary value nature — investigated within this exploration (short
+  form; full reasoning in `data_quality.md`, Accuracy):** all 556
+  salaried postings carry `salary_is_predicted = '0'`. Initial inspection
+  suggested platform-derived ranges; the distribution supports this
+  weakly (only ~62 distinct values, mostly round multiples of 10,000,
+  heavily repeated — atypical of individually declared pay). However, two
+  candidate confirmatory tests were considered and **rejected as
+  non-discriminating**: (a) salary scaling with title seniority — the
+  real market scales too, so it does not separate estimate from reality;
+  (b) salary dispersion within a repeated exact title — identical titles
+  can be genuinely different roles (e.g. 1 vs 5 years required), so
+  dispersion proves nothing. Adzuna's docs confirm what a `1` means but
+  not what a `0` means. **Final conclusion:** the exact nature of the
+  salary value is *not determinable from Adzuna data alone*; it is
+  documented as "58.46% carry a salary with the flag at 0, provenance
+  undetermined," not as employer-stated salary. This note records the
+  reasoning as it evolved during the exploration, including the rejected
+  tests, per the project's traceability practice.
 - **Downstream impact:** these real-volume figures are what the Week-2
   BigQuery schema design should use — salary columns sparse (~58%, of
   uncertain provenance), `contract_type` effectively empty,

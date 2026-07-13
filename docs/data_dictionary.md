@@ -122,13 +122,17 @@ than deleted, for traceability.*
   test, 0/10 in the n=10 test) was based on samples too small for
   inference and is NOT the project figure. Retained in `data_lineage.md`
   as record. The real-volume figure is 58.46%.
-- **Critical caveat (provenance unconfirmed):** a present salary is NOT
+- **Critical caveat (provenance undetermined):** a present salary is NOT
   confirmed to be an employer-stated figure. All salaried postings carry
-  `salary_is_predicted = '0'`, but inspection shows round, category-scaled
-  ranges suggesting platform derivation, and Adzuna's docs do not define
-  what a `0` value is. Treat `salary_min`/`salary_max` as a
-  platform-provided reference, not verified employer-stated pay. Full
-  analysis in `data_quality.md` — Accuracy.
+  `salary_is_predicted = '0'`, and the values cluster into few round,
+  repeated figures (~62 distinct values, mostly multiples of 10,000) —
+  atypical of individually declared pay. But this is evidence, not proof:
+  it cannot separate a platform estimate from rounded declared pay on
+  Adzuna data alone, and Adzuna's docs do not define what a `0` value is.
+  Treat `salary_min`/`salary_max` as a platform-provided reference of
+  undetermined provenance, not verified employer-stated pay. Full
+  analysis (including the two rejected discriminating tests) in
+  `data_quality.md` — Accuracy.
 
 ### description
 - **Type:** string

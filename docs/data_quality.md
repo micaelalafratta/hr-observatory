@@ -106,21 +106,39 @@ documented in full because the distinction is the point.
   confidence:
   1. *Measured:* all 556 salaried postings carry
      `salary_is_predicted = '0'` (string). None are flagged `1`.
-  2. *Inspected:* sample salaried postings show round, category-scaled
-     ranges (e.g. 60–80k, 70–90k, repeated within `consultancy-jobs` and
-     scaling with seniority), which is the shape of a derived category
-     range, not of irregular employer-stated figures.
+  2. *Inspected:* sample salaried postings show round, repeated values
+     rather than the irregular figures typical of individually
+     employer-stated pay — see the distribution finding below.
   3. *Documented (official source):* Adzuna's docs
      (developer.adzuna.com/docs/jobsworth) confirm a Salary Predictor
      exists and that `salary_is_predicted = 1` marks its estimates. The
      docs do **not** define what a `0` value is — so a `0` cannot be
      read as "employer-stated" on the strength of the documentation.
+- **Distribution finding (EDA, 2026-07-13):** across the 556 salaried
+  postings there are only ~62 distinct `salary_min` values, and the most
+  frequent are round multiples of 10,000 (70k appears 111 times, 60k 103
+  times, 80k 72 times, etc.). This concentration into few round, heavily
+  repeated values is atypical of individually employer-stated pay, which
+  usually shows dispersed, irregular figures. It is *more consistent with*
+  some form of grid-based assignment than with per-employer disclosure.
+- **What this does and does not prove (honest limit):** the round-value
+  pattern is evidence, not proof. It cannot, on Adzuna data alone,
+  conclusively separate "platform estimate" from "employer-stated pay
+  that happens to be rounded" (many employers do post round figures).
+  Two further tests were considered and rejected as non-discriminating:
+  salary scaling with title seniority (the real market scales too) and
+  salary dispersion within a repeated exact title (identical titles can
+  be genuinely different roles — e.g. 1 vs 5 years required — so
+  dispersion proves nothing either). Conclusion: the exact nature of the
+  salary value (platform estimate, rounded declared range, or a mix) is
+  **not determinable from Adzuna data alone**.
 - **Conclusion (what can honestly be claimed):** 58.46% of postings carry
-  a salary value with the predicted-flag at `0`. The nature of that value
-  is **not confirmed** and inspection suggests it may be
-  platform-derived. The project therefore treats `salary_min`/`salary_max`
-  as a platform-provided reference, not as verified employer-stated pay,
-  and does not publish "X% of employers disclose salary" as a finding.
+  a salary value with the predicted-flag at `0`. The values cluster into
+  few round figures, a pattern atypical of individually declared pay, but
+  their exact provenance is **not determinable from Adzuna data alone**.
+  The project therefore treats `salary_min`/`salary_max` as a
+  platform-provided reference, not as verified employer-stated pay, and
+  does not publish "X% of employers disclose salary" as a finding.
 - **Where verified salary would live:** if the project later needs
   genuinely employer-stated pay, the place to look is salary figures
   written in the `description` text, not these structured fields — a
