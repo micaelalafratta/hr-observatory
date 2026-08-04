@@ -115,6 +115,17 @@ count country-level postings as a city. See `data_dictionary.md`,
 
 ## Timeliness
 
+**Extraction window:** a single extraction run, 2026-07-06 15:20:32 UTC
+(see `data_lineage.md`, "First full extraction by category"). All
+timestamps in this project are UTC, confirmed consistent across the
+extraction-run timestamp and the `created` field (see `data_lineage.md`,
+"UTC timezone consistency check") — no conversion is needed to compare
+them. **Critical implication:** with a single extraction run, this
+project measures the PREVALENCE of postings and terms at one point in
+time, not their EVOLUTION over time. Any trend claim ("X is
+growing/declining") is out of scope for Phase 1 and would require
+repeated extractions at defined intervals.
+
 **Posting-age distribution within this extraction (measured 2026-08-04,
 n=951):** `created` ranges 2024-03-08 to 2026-07-06 (see
 `data_lineage.md`). 161/951 postings (16.93%) are more than 90 days

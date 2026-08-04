@@ -298,3 +298,38 @@ without opening the file.
   dedupe by `id`, normalize `company`, and flag/exclude the 11 sub-12,000
   `salary_min` values (or split into a separate hourly-rate field) before
   any salary-level analysis.
+
+## 2026-08-04 — UTC timezone consistency check
+
+- **Action:** No code run — a verification pass over the extraction
+  script and the `created` field, prompted by the need to confirm
+  timezone consistency before the Week-2 BigQuery schema design.
+- **Verified:**
+  1. The raw filename timestamp is generated with
+     `datetime.now(timezone.utc)` in `src/extract/adzuna_extract.py`
+     (~line 108), format
+     `adzuna_{category}_p{page}_{YYYYMMDD}_{HHMMSS}.json`. This is UTC,
+     not Europe/Madrid local time (which runs 1-2 hours ahead of UTC
+     depending on daylight saving).
+  2. The `created` field returned by Adzuna is ISO 8601 with a `Z`
+     suffix — also UTC. Parsed in the notebook with
+     `pd.to_datetime(..., utc=True)`.
+- **Conclusion:** every timestamp in this project — extraction-run time
+  and posting-publication time alike — is UTC, consistently. There is
+  no timezone mixing between the two, and no conversion is needed
+  anywhere in the current pipeline.
+- **Why this matters:** extraction time and publication time are
+  compared directly in several places (e.g. the posting-age analysis
+  above). If one were UTC and the other Europe/Madrid local time, that
+  comparison would be silently off by 1-2 hours — small enough to miss
+  in a spot check, large enough to corrupt a "posting age" metric.
+  Confirming both are UTC before the BigQuery schema is designed rules
+  this out permanently, rather than leaving it as an implicit
+  assumption.
+- **No code changed:** `src/extract/adzuna_extract.py` is correct as
+  written; this entry documents the verification, not a fix.
+- **Extraction run timestamp confirmed:** 2026-07-06 15:20:32 UTC —
+  matches the `_152032` suffix already recorded in the raw filenames
+  (see "First full extraction by category" above). See
+  `data_quality.md`, Timeliness, for why a single extraction run limits
+  this project to measuring prevalence, not evolution, over time.
