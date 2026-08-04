@@ -16,9 +16,17 @@ It is built with three simultaneous goals:
 2. Demonstrate DAMA/CDMP data-management practice by documenting the process itself, not only the output.
 3. Produce original analysis of the Spanish labour market with real value for employers in the sector.
 
-The governance layer is not an afterthought — it is the point. Every extraction, cleaning and scope decision is recorded as it is made, with its rationale, so the repository reads as evidence of *how* data is managed, not just *what* was found.
+### How this project handles its own data
 
-**This includes the analyses that were dropped.** Two of six planned Phase 1 analyses could not be built once the source was measured properly. Both are documented with the reason. A discarded analysis with a stated cause is a governance result, not a gap.
+The governance layer is not an afterthought — it is what the repository is for. Concretely, that means:
+
+- **Every figure carries its denominator and its exclusion threshold**, declared in the analysis query itself rather than buried in code. The geographic figures use 815 locatable postings, not 951; the salary threshold is Spain's statutory minimum wage, cited to its Royal Decree.
+- **The raw layer preserves the source exactly as delivered, defects included.** Duplicates, provider test records and mixed salary periodicities are loaded unfiltered, so every defect documented here stays verifiable with SQL rather than merely asserted in a markdown file.
+- **Column definitions live inside the BigQuery schema**, as `OPTIONS(description=...)` on every column. The data dictionary is a projection of the live schema, so the two cannot diverge.
+- **Rejected hypotheses are retained, not just conclusions.** Two salary-provenance tests were considered and discarded as non-discriminating; the reasoning is in the lineage, not only the outcome.
+- **Two of six planned analyses were dropped** once the source was measured. A discarded analysis with a stated cause is a governance result, not a gap.
+
+Full documentation: [data dictionary](./docs/data_dictionary.md) · [data quality](./docs/data_quality.md) · [data lineage](./docs/data_lineage.md)
 
 ---
 
@@ -116,17 +124,13 @@ Two categories (`accounting-finance-jobs`, `scientific-qa-jobs`) contain scatter
 
 ---
 
-## Governance layer (DAMA/CDMP)
+## Governance documentation
 
-This is the differentiating part of the project. Documentation lives in [`docs/`](./docs) and is written as decisions are made, not reconstructed afterwards.
+Written as decisions are made, not reconstructed afterwards.
 
 - **[Data Dictionary](./docs/data_dictionary.md)** — every column defined empirically, with its measured presence rate and known limitations. Since the BigQuery table carries `OPTIONS(description=...)` on every column, this document is a *projection* of the live schema rather than a parallel file: a dictionary maintained alongside a schema diverges from it; one generated from the schema cannot.
 - **[Data Quality](./docs/data_quality.md)** — completeness, consistency, validity, timeliness and accuracy documented over the project's own data, including quantified defects and declared exclusion thresholds.
 - **[Data Lineage](./docs/data_lineage.md)** — a chronological record of every pipeline event and decision, **including rejected hypotheses and discarded approaches**. The keyword-search extraction was deleted but its reasoning is retained; two salary-provenance tests were considered and rejected as non-discriminating, and the rejection is recorded rather than the conclusion alone.
-
-### Raw layer principle
-
-The BigQuery raw table preserves the source **exactly as delivered, defects included** — duplicates, provider test records, mixed salary periodicities and heterogeneous location granularity are all loaded unfiltered. Every quality defect documented above therefore remains verifiable with SQL against the loaded table, rather than only asserted in a markdown file. All cleaning decisions apply downstream.
 
 Planned governance work for later phases: MDM mapping between occupational taxonomies (CNO-2011, ISCO-08, Adzuna categories), and a Data Ethics / FRIA section on appropriate use and limitations.
 
