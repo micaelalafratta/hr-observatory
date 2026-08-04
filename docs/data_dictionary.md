@@ -33,6 +33,12 @@ than deleted, for traceability.*
 - **Type:** string
 - **Definition:** Adzuna's unique identifier for the job posting.
 - **Presence:** always present (951/951).
+- **Known limitation (duplicates):** 4/951 ids appear twice, all within
+  `it-jobs`. Verified field-by-field (2026-08-04): identical across
+  every column except `source_page` — genuine pagination overlap (the
+  same posting reappearing on a later page), not an id collision
+  between distinct postings. Dedupe by `id` in the transform step,
+  keeping the first occurrence. See `data_quality.md`, Completeness.
 
 ### title
 - **Type:** string
@@ -47,6 +53,11 @@ than deleted, for traceability.*
 - **Known limitation (name variants):** the same company can appear with
   name variants (e.g. "BBVA" vs. "Banco BBVA"). To be handled in the
   transform step as a consistency issue, not fixed at extraction time.
+  Measured on n=951 (2026-08-04): normalizing (case-fold + trim
+  punctuation/whitespace) and grouping finds 6 normalized keys with
+  more than one raw spelling (e.g. `dLocal`/`Dlocal`, `Erm`/`ERM`) —
+  full list and normalization decision in `data_quality.md`,
+  Consistency.
 - **Known limitation (missing employer):** `company.display_name` is
   present in 860/951 postings (90.43%); 91 postings carry no employer
   name at all (the key is absent). This affects any "top companies"
@@ -69,6 +80,12 @@ than deleted, for traceability.*
   → city). This is more reliable than lat/long for geographic analysis
   (see Data Quality — Accuracy).
 - **Presence:** always present.
+- **Known limitation (granularity):** `display_name` depth is not
+  uniform. Measured on n=951 (2026-08-04): 307 postings (32.28%) carry
+  only a country- or region-level string with no comma-separated
+  breakdown — 136 of those are the bare string "España". Any city-level
+  aggregation must filter or flag these first. See `data_quality.md`,
+  Consistency.
 
 ### latitude / longitude
 - **Type:** float
@@ -85,6 +102,11 @@ than deleted, for traceability.*
 - **Type:** string (ISO 8601 timestamp)
 - **Definition:** Date and time the posting was published on Adzuna.
 - **Presence:** always present.
+- **Known limitation (posting age):** ranges 2024-03-08 to 2026-07-06.
+  Measured on n=951 (2026-08-04): 161 postings (16.93%) are more than
+  90 days older than the latest posting in the extraction — a real
+  tail of stale listings. Volume is heavily concentrated in the weeks
+  immediately preceding extraction. See `data_quality.md`, Timeliness.
 
 ### redirect_url
 - **Type:** string (URL)
@@ -133,6 +155,22 @@ than deleted, for traceability.*
   undetermined provenance, not verified employer-stated pay. Full
   analysis (including the two rejected discriminating tests) in
   `data_quality.md` — Accuracy.
+- **Known limitation (unit inconsistency, low end):** 11/556 postings
+  (2.0%) carry `salary_min` under 12,000 — an hourly (or otherwise
+  sub-annual) rate stored in the same field as annual salaries, with no
+  unit flag. Confirmed 2026-08-04 via ratio test and manual
+  `redirect_url` inspection; a Spanish-locale decimal-parsing
+  explanation was tested and rejected. Applying Spain's minimum annual
+  wage (17,094 €) as an exclusion threshold affects 12/556 (2.2%) and
+  moves the mean from 71,096 to 72,601. Full trail in
+  `data_quality.md` — Accuracy, "Salary unit inconsistency."
+- **High-end outliers (unresolved):** two postings (`salary_min`
+  203,112 and 187,200) sit above a clean gap before the next cluster
+  (120,000). No defect confirmed for these as of 2026-08-04 — flagged
+  for the same manual verification applied at the low end.
+- **Range validity:** `salary_min > salary_max` checked directly on
+  n=951 (2026-08-04) — 0 violations. The paired fields are internally
+  consistent wherever both are present.
 
 ### description
 - **Type:** string

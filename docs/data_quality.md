@@ -73,16 +73,60 @@ limit for three categories but the true available volume for `legal-jobs`.
 Any per-category comparison must account for this asymmetry. See
 `data_lineage.md`, "First structural exploration."*
 
+*Page-level confirmation (2026-08-04): `consultancy-jobs`, `hr-jobs`,
+`it-jobs` return exactly 50/50 postings on every page p1–p5; `legal-jobs`
+returns 50/50 through p4 and only 1/50 on p5 — direct page-level evidence
+that legal-jobs exhaustion, not a truncated extraction, explains the 201
+figure. See `data_lineage.md`, 2026-08-04 entry.*
+
+**Pagination duplicate confirmation (2026-08-04, n=951):** the 4
+duplicate posting ids found on 2026-07-13 (all within `it-jobs`) were
+verified field-by-field — identical across every column except
+`source_page`. This confirms genuine pagination overlap (the same
+posting reappearing across Adzuna pages between calls), not an id
+collision between distinct postings. **Decision:** dedupe by `id` in
+the transform step, keeping the first occurrence.
+
 ## Consistency
 
-*Pending: to be documented once the transform step handles company
-name variants (e.g. "BBVA" vs. "Banco BBVA") — see `company` field in
-data_dictionary.md.*
+**Company name variants (measured 2026-08-04, n=951):** `company`
+normalized (lowercase, punctuation/whitespace stripped) and grouped by
+the normalized key. 6 normalized keys resolve to more than one raw
+spelling — the same company written inconsistently:
+- `dLocal` / `Dlocal`
+- `domestiko.com` / `Domestiko.com`
+- `Erm` / `ERM`
+- `Expert Executive Recruiters` / `Expert Executive Recruiters ` (trailing space)
+- `Neoris` / `NEORIS`
+- `thexpeople` / `Thexpeople`
+
+**Decision:** normalize `company` (case-fold + trim) before any
+grouping or "top companies" aggregation, in the transform step. The raw
+value is preserved as extracted; normalization is a staging-layer
+transform, not a raw-layer edit. See `data_dictionary.md`, `company`.
+
+**Location granularity (measured 2026-08-04, n=951):** `location_name`
+is not uniform in depth. 307/951 postings (32.28%) carry only a
+country- or region-level string with no comma-separated breakdown —
+136 of those are the bare string "España". Any city-level aggregation
+("top cities") must filter or flag these first, or it will silently
+count country-level postings as a city. See `data_dictionary.md`,
+`location`.
 
 ## Timeliness
 
-*Pending: to be documented once extraction frequency is defined for
-each source (Adzuna vs. quarterly EPA downloads vs. annual ILO index).*
+**Posting-age distribution within this extraction (measured 2026-08-04,
+n=951):** `created` ranges 2024-03-08 to 2026-07-06 (see
+`data_lineage.md`). 161/951 postings (16.93%) are more than 90 days
+older than the latest posting in the extraction — a real tail of stale
+listings, not an artifact. Volume is heavily concentrated in the weeks
+immediately preceding the extraction date. **Implication:** a "current
+market snapshot" framing should account for this tail rather than
+assume every posting reflects live demand at extraction time.
+
+*Pending: cross-source extraction frequency is still to be defined
+(Adzuna vs. quarterly EPA downloads vs. annual ILO index) — this is a
+separate question from the within-dataset age distribution above.*
 
 ## Accuracy
 
@@ -147,6 +191,39 @@ documented in full because the distinction is the point.
 *Note: this analysis reinforces the completeness ≠ accuracy principle. A
 field can be 58% complete and still 0% verifiable as what its name
 implies. Documenting the limit is the governance value, not hiding it.*
+
+### Salary unit inconsistency (Validity)
+
+**Low end — resolved (2026-08-04):** 11/556 salaried postings (2.0%)
+carry `salary_min` under 12,000 — implausible as an annual figure. A
+Spanish-locale decimal-parsing hypothesis ("28.000 €" misread as an
+English decimal, "28.0") was tested and rejected: all 11 values are
+integers, and multiplying by 1,000 does not land most of them back
+inside the observed normal range (e.g. 6,875 → 6,875,000). The
+min/max ratio for these postings instead matches an hourly-rate pattern
+(mostly 1.04–1.36, e.g. 360–480, 30–35), confirmed by manually opening
+3 of the 11 `redirect_url` links in a browser. **Conclusion:** these
+postings store an hourly (or otherwise sub-annual) rate in the same
+field as annual salaries, with no unit flag to distinguish them.
+Applying Spain's minimum annual wage (17,094 €) as an exclusion
+threshold instead affects 12/556 postings (2.2%) and shifts mean
+`salary_min` from 71,096 to 72,601 — a quantified, non-negligible bias
+if the low cluster is left uncorrected.
+
+**High end — unresolved (2026-08-04):** the same gap/ratio method was
+applied to the top of the range. `salary_min` 203,112 and 187,200 sit
+above a clean gap before the next-highest cluster (120,000, repeated
+many times); `salary_max` reaches 395,200. No unit-parsing or
+rate-type defect was confirmed for these two — they remain unresolved
+outliers pending the same manual `redirect_url` check applied at the
+low end.
+
+**Range validity — confirmed clean (2026-08-04):** `salary_min >
+salary_max` checked directly across all 951 postings — 0 violations.
+The paired salary fields are internally consistent wherever both are
+present.
+
+Full investigation trail in `data_lineage.md`, 2026-08-04 entry.
 
 ## Reliability of text-based analysis (description field)
 

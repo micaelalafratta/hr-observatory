@@ -216,3 +216,85 @@ without opening the file.
   uncertain provenance), `contract_type` effectively empty,
   geocoordinates ~83%. `data_dictionary.md` and `data_quality.md` are
   updated to reference this event.
+
+## 2026-08-04 — Extended EDA: salary bounds, duplicate confirmation, consistency, and temporal distribution
+
+- **Script:** `notebooks/1_EDA.ipynb`, extended cells following the
+  2026-07-13 exploration. Read-only over the same n=951 DataFrame; no
+  transformation, no writes to raw.
+- **Action:** Closed gaps left open by the first exploration — the low
+  end of the salary range had been investigated but not the high end,
+  `salary_min > salary_max` had never been checked directly, the 4
+  duplicate ids found on 2026-07-13 had not been verified row-by-row,
+  the `company` variant issue flagged as "pending" in `data_quality.md`
+  had not been measured, `location_name` granularity was unexamined, and
+  `created` had only a min/max range with no distribution.
+- **Salary unit inconsistency (low end), resolved:** 11/556 salaried
+  postings (2.0%) carry `salary_min` under 12,000 — implausible as an
+  annual figure. A Spanish-locale decimal-parsing hypothesis
+  ("28.000 €" misread as "28.0") was tested and rejected: all 11 values
+  are integers, and multiplying by 1,000 does not land most of them back
+  inside the observed normal range. The min/max ratio for these postings
+  (mostly 1.04–1.36, e.g. 360–480, 30–35) instead matches an hourly-rate
+  pattern, confirmed by manually opening 3 of the 11 `redirect_url`
+  links in a browser. **Conclusion:** these postings store an hourly (or
+  otherwise sub-annual) rate in the same field as annual salaries, with
+  no unit flag to distinguish them. Applying Spain's minimum annual wage
+  (17,094 €) as an exclusion threshold affects 12/556 postings (2.2%)
+  and shifts mean `salary_min` from 71,096 to 72,601 — a quantified,
+  non-negligible bias if the low cluster is left uncorrected. Full
+  reasoning in `data_quality.md`, Accuracy — "Salary unit inconsistency."
+- **Salary unit inconsistency (high end), unresolved:** the same
+  gap/ratio method was applied to the top of the range. `salary_min`
+  203,112 and 187,200 sit above a clean gap before the next cluster
+  (120,000, repeated many times); `salary_max` reaches 395,200. No
+  unit-parsing or rate-type defect was confirmed for these two —
+  candidates for the same manual `redirect_url` check applied at the low
+  end, not yet done.
+- **Range validity confirmed:** `salary_min > salary_max` checked
+  directly across all 951 postings — 0 violations. The paired salary
+  fields are internally consistent wherever both are present.
+- **Duplicate posting ids confirmed as pagination overlap:** the 4
+  duplicate ids found on 2026-07-13 (all within `it-jobs`) were compared
+  field-by-field. All 4 are identical across every column except
+  `source_page` — the same posting reappearing on a later page, not an
+  id collision between distinct postings. **Decision:** dedupe by `id`
+  in the transform step, keeping the first occurrence.
+- **Company name variants measured:** `company` normalized
+  (lowercase, punctuation/whitespace stripped) and grouped — 6
+  normalized keys resolve to more than one raw spelling: `dLocal`/
+  `Dlocal`, `domestiko.com`/`Domestiko.com`, `Erm`/`ERM`, `Expert
+  Executive Recruiters`/`Expert Executive Recruiters ` (trailing space),
+  `Neoris`/`NEORIS`, `thexpeople`/`Thexpeople`. This resolves the
+  "Pending" Consistency item left open in `data_quality.md` on
+  2026-07-13. **Decision:** normalize `company` (case-fold + trim)
+  before any grouping/aggregation in the transform step; raw value
+  stays untouched at extraction.
+- **Location granularity measured:** 307/951 postings (32.28%) carry
+  `location_name` with no comma — a country- or region-level string
+  only, not "City, Region". 136 of those are the bare string "España".
+  Any city-level aggregation (e.g. "top cities") must filter or flag
+  these first, or it will silently count country-level postings as a
+  city. Madrid + Barcelona account for 42.1% of all `location_name`
+  values once counted correctly.
+- **Posting-age distribution measured (Timeliness):** 161/951 postings
+  (16.93%) are more than 90 days older than the latest `created` date in
+  the extraction (2026-07-06). Volume is heavily concentrated in the
+  weeks immediately preceding extraction, with a long thin tail back to
+  2024-03-08. A "current market snapshot" framing should account for
+  this tail rather than assume every posting reflects live demand at
+  extraction time.
+- **`legal-jobs` exhaustion confirmed at page level:** page-by-page
+  breakdown shows `consultancy-jobs`, `hr-jobs`, `it-jobs` at exactly
+  50/50 postings on every page p1–p5; `legal-jobs` at 50/50 through p4
+  and only 1/50 on p5. This is page-level evidence for the exhaustion
+  conclusion already reached on 2026-07-13 (legal-jobs ran out of
+  postings before the 5-page cap, rather than the extraction being
+  truncated).
+- **Downstream impact:** `data_dictionary.md` (`company`, `location`,
+  `salary_min`/`salary_max`, `id`, `created`) and `data_quality.md`
+  (Consistency, Timeliness, Accuracy, Completeness) updated to reference
+  this event. Transform-step decisions now pending implementation:
+  dedupe by `id`, normalize `company`, and flag/exclude the 11 sub-12,000
+  `salary_min` values (or split into a separate hourly-rate field) before
+  any salary-level analysis.
