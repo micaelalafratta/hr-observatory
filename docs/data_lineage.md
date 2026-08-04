@@ -333,3 +333,284 @@ without opening the file.
   (see "First full extraction by category" above). See
   `data_quality.md`, Timeliness, for why a single extraction run limits
   this project to measuring prevalence, not evolution, over time.
+
+## 2026-08-04 — BigQuery raw layer: schema design, load, and first SQL analyses
+
+- **Artefacts:** `sql/schema/create_adzuna_postings_raw.sql`,
+  `src/load/bigquery_load.py`, `sql/analysis/00`–`06`.
+- **Action:** Designed and created the BigQuery raw table, loaded the full
+  extraction unfiltered, and ran the Phase 1 analyses in SQL. Two planned
+  analyses were dropped after measurement showed the source could not
+  support them.
+
+### Layer architecture decision
+
+One table per source, one dataset per layer. The Adzuna schema depends only
+on the Adzuna extraction and required no knowledge of the EPA or ILO
+sources: those enter as separate tables in Phase 2, and cross-source
+reconciliation (the CNO-2011 / ISCO-08 / Adzuna crosswalk) belongs in a
+later `marts` layer, not in `raw`. Deforming the raw schema to anticipate
+future sources would break traceability to origin, which is the raw layer's
+only job.
+
+Dataset location is set to `EU` and is immutable after creation — a
+deliberate choice for a project analysing Spanish labour-market data under
+a GDPR framing.
+
+### Schema decisions
+
+Recorded because they are reversible only by migration.
+
+- **`id` typed STRING, not INT64.** An external identifier is not a
+  quantity. It is also the only `NOT NULL` column: the raw layer must
+  accept whatever the source delivers, and declaring any other column
+  mandatory would make a future load fail on a legitimately absent value.
+- **`salary_is_predicted` typed STRING, not BOOL.** Preserves the literal
+  `'0'` the source returns. Casting to boolean at the raw layer would be an
+  interpretation, and the field's meaning is precisely what is disputed.
+- **`contract_type` retained despite being 0% populated.** A structurally
+  empty column documented as such is a completeness finding; an omitted
+  column is lost information. Retaining it also means a future extraction
+  that begins populating the field needs no schema migration.
+- **`extracted_at` added — not a source field.** Provenance: this project.
+  Set to the single extraction-run timestamp 2026-07-06 15:20:32 UTC for
+  all rows, because it describes the run, not the individual file. Without
+  it the dataset supports prevalence analysis only and could never support
+  analysis of change over time.
+- **No partitioning, no clustering.** At 951 rows partition pruning saves
+  nothing; an unjustified partitioning scheme would be decoration rather
+  than design. Recorded as a decision rather than an omission, revisitable
+  if volume grows.
+
+### Column descriptions embedded in the DDL
+
+Every column carries an `OPTIONS(description="...")` clause recording its
+measured presence, its known defects, and any exclusion threshold that
+applies to it. Consequence: the data dictionary and the table schema are the
+same object and cannot diverge. `data_dictionary.md` becomes a projection of
+the live schema, generated from `INFORMATION_SCHEMA.COLUMN_FIELD_PATHS`,
+rather than a parallel document maintained by hand.
+
+### Load decision: unfiltered
+
+All 951 rows loaded as delivered — duplicates, provider test records, mixed
+salary periodicities and heterogeneous location granularity included. No
+deduplication, no unit correction, no name normalisation at load.
+
+Rationale: every quality defect documented in `data_quality.md` must remain
+verifiable with SQL against the loaded table. Filtering at load would
+convert those findings from demonstrable evidence into unsupported
+assertions. The transform-step decisions recorded on 2026-07-13 and earlier
+today — dedupe by `id`, normalise `company`, exclude sub-minimum-wage
+salaries, exclude provider test records — apply downstream, not here.
+
+`WRITE_EMPTY` is used as the write disposition so an accidental second run
+fails loudly rather than silently doubling every count and invalidating
+every field-presence percentage already documented.
+
+**Load verification:** all figures reconciled against the pandas profiling —
+951 rows, 947 distinct ids, 556 with salary, 91 without company, 790 with
+coordinates, 0 with `contract_type`, 27 with `contract_time`, `created`
+spanning 2024-03-08 to 2026-07-06. No discrepancies.
+
+### Description truncation quantified — supersedes the 2026-07-06 decision
+
+The 2026-07-06 methodological review decided to keep `description`-based
+keyword analysis as an explicitly labelled secondary metric rather than
+discard it. Direct measurement today supersedes that decision.
+
+`description` is truncated at a **hard 500-character ceiling**: 814 of 951
+records (85.6%) sit at exactly 500 characters; mean 485, minimum 142,
+maximum 500 with no exceptions. Only 137 records carry their full text.
+
+500 characters is roughly an opening paragraph. Technical requirements,
+certifications and regulatory references appear later in a real posting — in
+the portion that does not survive. A keyword search over this field measures
+whether a term is prominent enough to appear in the lead text, not whether
+the role requires it.
+
+The truncation is also non-random in the direction that matters: longer,
+more detailed postings — typically larger employers with more regulatory
+obligations — lose proportionally more text. Any prevalence figure would be
+a floor biased against precisely the terms the project set out to measure.
+The structural-variability problem identified on 2026-07-06 still applies
+and compounds it.
+
+**Decision:** the planned analysis of AI Act, GDPR, data governance, DPO and
+data steward term prevalence is dropped for Phase 1. The two-tier metric
+approach recorded on 2026-07-06 is superseded: the secondary tier has no
+usable corpus. The finding is reframed — the source does not permit
+measuring technical requirements from posting text, and that limitation is
+the result.
+
+**Phase 3 impact:** the planned language-bias analysis over posting
+descriptions is not viable from this endpoint either. It would require a
+different source, or scraping via `redirect_url` with its own legal and
+ethical assessment under this project's own FRIA layer. Not a Phase 1
+concern; recorded so it is not rediscovered later.
+
+### Employer ranking dropped
+
+`05_company_concentration` was planned as a "top companies hiring" analysis.
+Measurement shows it cannot be built from this source:
+
+- 468 distinct normalised company names across 860 named postings
+  (confirming the 6 spelling variants collapse as expected from 474).
+- The two highest-volume names account for 15.9% of named postings and are
+  a recruitment agency and an aggregator, not employers.
+- The top 10 account for 25.1% — only 9.2 points more than the top 2, so
+  concentration is almost entirely intermediary-driven.
+- 344 of 468 companies (73.5%) publish a single posting.
+- 91 postings (9.6%) carry no employer name at all.
+
+Excluding intermediaries, no employer concentration is visible: ranks 3 to
+20 span 14 to 4 postings, which does not distinguish signal from noise.
+
+**Decision:** no employer ranking is published. The finding is the market
+structure — a long tail of single-posting employers, with the visible top
+occupied by intermediation rather than demand. Separating agencies from
+employers requires editorial classification, not SQL: the source provides no
+field for it. That classification is deferred to Phase 2 if the ranking is
+ever needed.
+
+### Geographic granularity refined
+
+The earlier 2026-08-04 EDA recorded 307 postings (32.28%) without a comma.
+SQL classification splits that figure into two materially different cases:
+
+| Granularity             | Postings | %    |
+|-------------------------|----------|------|
+| City and region         | 644      | 67.7 |
+| City or region only     | 171      | 18.0 |
+| Country only ("España") | 136      | 14.3 |
+| Missing                 | 0        | 0.0  |
+
+The 171 comma-less values are largely identifiable cities written without
+their region ("Madrid", "Barcelona"), not unusable data. Only the 136
+country-level records carry no geographic signal.
+
+**Decision:** city-level analysis uses the 815 locatable records, treating
+comma-less city names as equivalent to their comma-separated form. The 136
+country-level records are excluded.
+
+**Reconciliation of two figures:** the 42.1% recorded earlier for Madrid +
+Barcelona was computed over all 951 `location_name` values. Over the 815
+locatable records the same cities account for **49.0%** (Madrid 262, 32.1%;
+Barcelona 138, 16.9%). Both are arithmetically correct. The published figure
+is 49.0% of locatable postings, because including country-level records in
+the denominator understates concentration among postings that actually name
+a place. The 42.1% is superseded for publication and retained as record.
+
+**Long-tail caution:** Santa Cruz de Tenerife ranks fifth (12 postings), but
+6 of those 12 come from a single company (Atlantis). Cities below the top
+two are sensitive to individual hiring campaigns and should not be read as
+market signal. Verified before publication rather than after.
+
+### Salary framing correction
+
+The analysis was initially written as "salary disclosure" with a
+`pct_disclosing` column. This contradicted the conclusion already documented
+in `data_quality.md`, Accuracy: salary provenance is not determinable from
+Adzuna data alone, so a populated field cannot be attributed to employer
+disclosure.
+
+**Correction applied:** the query is renamed `03_salary_field_presence.sql`
+and the metric renamed `pct_with_salary_value`. What is measured is whether
+the field carries a value, not whether an employer chose to publish pay.
+
+| Category         | Postings | With value | %    | Median (≥ SMI) |
+|------------------|----------|------------|------|----------------|
+| consultancy-jobs | 250      | 176        | 70.4 | 70,000         |
+| legal-jobs       | 201      | 141        | 70.1 | 100,000        |
+| it-jobs          | 250      | 131        | 52.4 | 60,000         |
+| hr-jobs          | 250      | 108        | 43.2 | 50,000         |
+
+**Pattern observed:** presence rate and salary level rank in the same order
+across all four categories, a 27-point spread between consultancy and HR.
+
+**Interpretation not determinable:** the pattern is equally consistent with
+employer behaviour (lower-paying roles publish pay less often) and with
+source behaviour (Adzuna salary coverage is better in higher-paying
+segments). Four categories are a pattern, not a correlation. The pattern is
+publishable; a causal reading of it is not.
+
+**Selection caveat corrected:** an earlier draft stated that real gaps are
+likely wider than measured. That holds only if the absence is employer-driven.
+If it is source-driven it does not hold. The direction of the bias cannot be
+established from this source, and the caveat is written accordingly.
+
+### Salary threshold robustness
+
+No observed `salary_min` value falls between the 2025 minimum wage (16,576 €)
+and the 2026 figure (17,094 €, RD 126/2026) — the next value above 16,200 is
+18,000. The exclusion count is therefore insensitive to which year's figure
+is used, so the threshold does not depend on having picked the exact
+statutory value. Recorded because a threshold that survives its own
+sensitivity check is a stronger claim than one that merely sounds
+authoritative.
+
+### Provider test records found in production data
+
+Two postings are Adzuna test records that reached the production response:
+"Contract Dummy Job" and "Job for testing", both with salary 360–480. These
+are not vacancies. They fall among the 12 records excluded by the
+minimum-wage threshold, so they do not affect salary aggregates, but they are
+counted in every volume figure. Recorded as a Validity finding; exclusion by
+title pattern is a transform-step decision.
+
+### Non-company values in the `company` field
+
+`Madrid` appears as a company name in 5 postings. The field is not
+type-constrained by the source and contains at least one city name. Recorded
+as a Validity finding, distinct from the case and whitespace variants already
+recorded under Consistency: those are the same entity written differently,
+this is not an entity at all.
+
+### French-language postings — universe confirmed correct
+
+37 postings (3.9%) carry French-language title patterns (`F/H`, `H/F`,
+`en stage`, `chargé`). All are located in Spain. These are French-owned
+employers — DriiveMe, Children Worldwide Fashion España SLU — publishing in
+their corporate language within the Spanish market, not postings from outside
+the target universe.
+
+**Implication:** language is not a reliable proxy for market, and the
+bilingual (ES/EN) keyword strategy recorded in `data_dictionary.md` was
+incomplete: French-language postings would have been missed entirely by it.
+
+### Staleness figures extended
+
+The 90-day figure recorded earlier today is extended with two further
+thresholds, measured against the extraction-run timestamp:
+
+| Threshold        | Postings | %    |
+|------------------|----------|------|
+| Older than 30 d  | 292      | 30.7 |
+| Older than 90 d  | 161      | 16.9 |
+| Older than 1 y   | 60       | 6.3  |
+
+Earliest posting: 2024-03-08, 28 months before extraction.
+
+**Implication, and it qualifies every other analysis in this project:** the
+source returns as active postings that have been published for up to 28
+months. `created` records publication date; the source provides no field
+indicating whether a posting is still open. Every figure this project
+publishes describes what Adzuna returned as active on 2026-07-06, not
+verified current market demand.
+
+### Phase 1 analysis outcome summary
+
+Six analyses were planned. Four produced findings; two were dropped or
+reframed after measurement. Both outcomes are recorded because a discarded
+analysis with a stated reason is itself a governance result — it demonstrates
+source evaluation, not failure to execute.
+
+| Query | Outcome |
+|-------|---------|
+| `00_load_verification` | Reconciled, no discrepancies |
+| `01_category_frequency` | `legal-jobs` exhaustion confirmed at page level |
+| `02_geographic_distribution` | Madrid + Barcelona 49.0% of 815 locatable |
+| `03_salary_field_presence` | 27-point spread; interpretation undetermined |
+| `04_description_coverage` | Term prevalence analysis DROPPED |
+| `05_company_concentration` | Employer ranking DROPPED; market structure reported |
+| `06_posting_staleness` | 30.7% older than 30 days at extraction |
