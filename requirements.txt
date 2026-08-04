@@ -1,4 +1,6 @@
 requests
 pandas
 python-dotenv
+matplotlib
+seaborn
 google-cloud-bigquery
