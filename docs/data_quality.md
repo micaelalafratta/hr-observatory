@@ -1,11 +1,13 @@
 # Data Quality Dimensions
 
-> Explicit documentation of completeness, consistency, timeliness, and
-> accuracy over this project's own data — following DAMA data quality
+> Explicit documentation of completeness, consistency, validity, timeliness,
+> and accuracy over this project's own data — following DAMA data quality
 > dimensions.
 
 ## Completeness
+
 ### Completeness — categories
+
 **Salary (`salary_min` / `salary_max`):** present in 556/951 postings
 (58.46%) in the first full category extraction (n=951). Where absent,
 the key is omitted entirely (not returned as null). The two fields are
@@ -23,6 +25,47 @@ should be read as "carries a salary value with `salary_is_predicted = 0`,
 provenance unconfirmed" rather than as verified salary transparency. This
 is a completeness figure, not an accuracy claim — the two are documented
 separately on purpose.
+
+### Completeness — salary field presence by category
+
+**Measured in SQL 2026-08-04** (`sql/analysis/03_salary_field_presence.sql`):
+
+| Category         | Postings | With value | %    | Median (≥ SMI) |
+|------------------|----------|------------|------|----------------|
+| consultancy-jobs | 250      | 176        | 70.4 | 70,000         |
+| legal-jobs       | 201      | 141        | 70.1 | 100,000        |
+| it-jobs          | 250      | 131        | 52.4 | 60,000         |
+| hr-jobs          | 250      | 108        | 43.2 | 50,000         |
+
+**Framing correction (2026-08-04):** this analysis was initially written as
+"salary disclosure" with a `pct_disclosing` metric. That contradicted the
+Accuracy conclusion below — if provenance is undetermined, a populated field
+cannot be attributed to employer disclosure. The query was renamed
+`03_salary_field_presence.sql` and the metric `pct_with_salary_value`. What is
+measured is whether the field carries a value, not whether an employer chose
+to publish pay.
+
+**Pattern observed:** presence rate and salary level rank in the same order
+across all four categories — a 27-point spread between consultancy and HR.
+
+**Interpretation not determinable:** the pattern is equally consistent with
+employer behaviour (lower-paying roles publish pay less often) and with source
+behaviour (Adzuna salary coverage is better in higher-paying segments). Four
+categories are a pattern, not a correlation. The pattern is publishable; a
+causal reading of it is not.
+
+**Selection caveat:** medians reflect only postings carrying a value. If the
+gap is employer-driven, observed medians are inflated and real gaps are wider
+than measured. If it is source-driven, they are not. The direction of the bias
+cannot be established from this source.
+
+### Completeness — description field
+
+**Measured 2026-08-04:** `description` is truncated by the provider at a hard
+500-character ceiling. 814/951 records (85.6%) sit at exactly 500 characters;
+mean 485, minimum 142, maximum 500 with no exceptions. Only 137 records carry
+untruncated text. See "Reliability of text-based analysis" below for the
+consequence.
 
 ### Completeness — search universe
 
@@ -48,6 +91,15 @@ matching in the transform step. Spanish and English terms are both
 covered (e.g. "data governance" / "gobernanza de datos", "GDPR" / "RGPD")
 to avoid language-driven loss. Accent normalisation is applied before
 matching to prevent missed matches (e.g. "gestión" vs "gestion").
+
+**Limitation identified 2026-08-04:** bilingual (ES/EN) matching is
+incomplete. 37 postings (3.9%) carry French-language titles, all located in
+Spain — French-owned employers (DriiveMe, Children Worldwide Fashion España
+SLU) publishing in their corporate language within the Spanish market.
+Language is not a proxy for market, and a two-language filter would silently
+drop these records. Recorded rather than fixed: relevance filtering is a
+transform-step concern, and the keyword analysis it fed has since been dropped
+(see "Reliability of text-based analysis").
 
 ### Completeness — extraction integrity
 
@@ -85,7 +137,8 @@ verified field-by-field — identical across every column except
 `source_page`. This confirms genuine pagination overlap (the same
 posting reappearing across Adzuna pages between calls), not an id
 collision between distinct postings. **Decision:** dedupe by `id` in
-the transform step, keeping the first occurrence.
+the transform step, keeping the first occurrence. The raw layer retains
+all 951 rows so the defect stays verifiable in SQL.
 
 ## Consistency
 
@@ -93,6 +146,7 @@ the transform step, keeping the first occurrence.
 normalized (lowercase, punctuation/whitespace stripped) and grouped by
 the normalized key. 6 normalized keys resolve to more than one raw
 spelling — the same company written inconsistently:
+
 - `dLocal` / `Dlocal`
 - `domestiko.com` / `Domestiko.com`
 - `Erm` / `ERM`
@@ -105,13 +159,65 @@ grouping or "top companies" aggregation, in the transform step. The raw
 value is preserved as extracted; normalization is a staging-layer
 transform, not a raw-layer edit. See `data_dictionary.md`, `company`.
 
-**Location granularity (measured 2026-08-04, n=951):** `location_name`
-is not uniform in depth. 307/951 postings (32.28%) carry only a
-country- or region-level string with no comma-separated breakdown —
-136 of those are the bare string "España". Any city-level aggregation
-("top cities") must filter or flag these first, or it will silently
-count country-level postings as a city. See `data_dictionary.md`,
-`location`.
+**SQL confirmation (2026-08-04):** grouping by the normalised key in
+BigQuery returns 468 distinct companies against 474 raw spellings —
+the 6 variants collapse exactly as measured.
+
+**Location granularity (measured 2026-08-04, refined in SQL):**
+`location_name` is delivered at three levels of depth within the same field,
+and is 100% complete (0 nulls):
+
+| Granularity             | Postings | %    |
+|-------------------------|----------|------|
+| City and region         | 644      | 67.7 |
+| City or region only     | 171      | 18.0 |
+| Country only ("España") | 136      | 14.3 |
+
+The field is complete but not consistent. The 171 comma-less values are
+largely identifiable cities written without their region ("Madrid",
+"Barcelona"), not unusable data — only the 136 country-level records carry no
+geographic signal.
+
+**Decision:** city-level analysis uses the 815 locatable records, treating
+comma-less city names as equivalent to their comma-separated form; the 136
+country-level records are excluded. All published geographic percentages use
+815 as denominator, not 951.
+
+**Superseded figure:** Madrid + Barcelona at 42.1% was computed over all 951
+values. Over the 815 locatable records the same cities account for **49.0%**
+(Madrid 262, 32.1%; Barcelona 138, 16.9%). The 49.0% figure is the published
+one; the 42.1% is retained here as record.
+
+**Long-tail caution:** cities below the top two are sensitive to individual
+employers — 6 of the 12 Santa Cruz de Tenerife postings come from a single
+company. Only the top ranks should be read as market signal.
+
+**Location is not work modality:** `location_name` records where a posting is
+published, not whether the work is on-site. The source carries no remote-work
+field, so no claim about physical work location can be made from it.
+
+## Validity
+
+Fields that carry values of the wrong kind — as distinct from missing values
+(Completeness) or inconsistently formatted values (Consistency).
+
+**Provider test records (measured 2026-08-04):** two postings are Adzuna test
+data that reached the production response — "Contract Dummy Job" and "Job for
+testing", both with salary 360–480. These are not vacancies. They fall among
+the 12 records excluded by the minimum-wage threshold, so salary aggregates
+are unaffected, but they are counted in every volume figure. **Decision:**
+exclude by title pattern in the transform step.
+
+**Non-company values in `company` (measured 2026-08-04):** the string `Madrid`
+appears as a company name in 5 postings. The source applies no type constraint
+to this field. Distinct from the case and whitespace variants recorded under
+Consistency: those are the same entity written differently; this is not an
+entity at all.
+
+**Salary unit inconsistency:** the field mixes hourly, daily, monthly and
+annual figures with no unit declared. Recorded under Accuracy rather than here
+because the type is correct and each value is real — what is wrong is
+comparability across records. See "Salary unit inconsistency" below.
 
 ## Timeliness
 
@@ -126,14 +232,24 @@ time, not their EVOLUTION over time. Any trend claim ("X is
 growing/declining") is out of scope for Phase 1 and would require
 repeated extractions at defined intervals.
 
-**Posting-age distribution within this extraction (measured 2026-08-04,
-n=951):** `created` ranges 2024-03-08 to 2026-07-06 (see
-`data_lineage.md`). 161/951 postings (16.93%) are more than 90 days
-older than the latest posting in the extraction — a real tail of stale
-listings, not an artifact. Volume is heavily concentrated in the weeks
-immediately preceding the extraction date. **Implication:** a "current
-market snapshot" framing should account for this tail rather than
-assume every posting reflects live demand at extraction time.
+**Posting-age distribution (measured 2026-08-04, extended in SQL, n=951):**
+`created` ranges 2024-03-08 to 2026-07-06. Measured against the
+extraction-run timestamp:
+
+| Threshold       | Postings | %    |
+|-----------------|----------|------|
+| Older than 30 d | 292      | 30.7 |
+| Older than 90 d | 161      | 16.9 |
+| Older than 1 y  | 60       | 6.3  |
+
+Volume concentrates in the weeks preceding extraction, with a long thin tail
+reaching 28 months back.
+
+**Implication, and it qualifies every other figure in this project:**
+`created` records publication date, not vacancy status, and the source
+provides no field indicating whether a posting is still open. Every figure
+this project publishes describes what the source returned as active on
+2026-07-06, not verified current market demand.
 
 *Pending: cross-source extraction frequency is still to be defined
 (Adzuna vs. quarterly EPA downloads vs. annual ILO index) — this is a
@@ -144,12 +260,12 @@ separate question from the within-dataset age distribution above.*
 **Geocoding (`latitude` / `longitude`):** present in 790/951 postings
 (83.07%) on n=951 — higher than the ~50% seen in the earlier n=50 test,
 which understated coverage. The remaining ~17% still include a
-textual/hierarchical location (the `location` field, always present),
-but without exact coordinates.
+textual location (`location_name`, always present), but without exact
+coordinates.
 
 **Implication:** any geographic analysis relying on lat/long will have
 partial coverage; analysis by autonomous community is more reliable if
-based on `location` rather than coordinates.
+based on `location_name` rather than coordinates.
 
 **Salary provenance (`salary_min` / `salary_max` / `salary_is_predicted`):**
 this is the clearest completeness-vs-accuracy case in the project, and is
@@ -159,8 +275,10 @@ documented in full because the distinction is the point.
 - **Accuracy problem:** a present salary is not confirmed to be a figure
   the employer stated in the posting. Three observations, in order of
   confidence:
-  1. *Measured:* all 556 salaried postings carry
-     `salary_is_predicted = '0'` (string). None are flagged `1`.
+  1. *Measured:* all 951 postings carry `salary_is_predicted = '0'`
+     (string) — including the 395 that carry no salary at all. The field
+     has zero variance and is present where the concept does not apply,
+     so it cannot discriminate provenance in either direction.
   2. *Inspected:* sample salaried postings show round, repeated values
      rather than the irregular figures typical of individually
      employer-stated pay — see the distribution finding below.
@@ -195,15 +313,16 @@ documented in full because the distinction is the point.
   platform-provided reference, not as verified employer-stated pay, and
   does not publish "X% of employers disclose salary" as a finding.
 - **Where verified salary would live:** if the project later needs
-  genuinely employer-stated pay, the place to look is salary figures
-  written in the `description` text, not these structured fields — a
-  text-analysis task for a later phase, not Phase 1.
+  genuinely employer-stated pay, the place to look would be salary figures
+  written in the `description` text. That route is now closed for Phase 1:
+  the field is truncated at 500 characters (see below), so it does not
+  reliably contain the pay section of a posting.
 
 *Note: this analysis reinforces the completeness ≠ accuracy principle. A
 field can be 58% complete and still 0% verifiable as what its name
 implies. Documenting the limit is the governance value, not hiding it.*
 
-### Salary unit inconsistency (Validity)
+### Salary unit inconsistency
 
 **Low end — resolved (2026-08-04):** 11/556 salaried postings (2.0%)
 carry `salary_min` under 12,000 — implausible as an annual figure. A
@@ -216,67 +335,85 @@ min/max ratio for these postings instead matches an hourly-rate pattern
 3 of the 11 `redirect_url` links in a browser. **Conclusion:** these
 postings store an hourly (or otherwise sub-annual) rate in the same
 field as annual salaries, with no unit flag to distinguish them.
-Applying Spain's minimum annual wage (17,094 €) as an exclusion
-threshold instead affects 12/556 postings (2.2%) and shifts mean
+Applying Spain's minimum annual wage (17,094 €, RD 126/2026) as an
+exclusion threshold instead affects 12/556 postings (2.2%) and shifts mean
 `salary_min` from 71,096 to 72,601 — a quantified, non-negligible bias
 if the low cluster is left uncorrected.
+
+**Threshold robustness (2026-08-04):** no observed `salary_min` value falls
+between the 2025 minimum wage (16,576 €) and the 2026 figure (17,094 €) — the
+next value above 16,200 is 18,000. The exclusion count is therefore
+insensitive to which year's figure is used, so the threshold does not depend
+on having picked the exact statutory value.
+
+**Category distribution of excluded records:** of the 12 excluded, 8 are in
+`hr-jobs`, 3 in `it-jobs`, 1 in `legal-jobs`. Consistent with hourly and daily
+rates being more common in staffing and recruitment roles, but 8 observations
+are not a finding — recorded as a pattern, not published as one.
 
 **High end — unresolved (2026-08-04):** the same gap/ratio method was
 applied to the top of the range. `salary_min` 203,112 and 187,200 sit
 above a clean gap before the next-highest cluster (120,000, repeated
-many times); `salary_max` reaches 395,200. No unit-parsing or
-rate-type defect was confirmed for these two — they remain unresolved
-outliers pending the same manual `redirect_url` check applied at the
-low end.
+many times); `salary_max` reaches 395,200. One of the two is a freelance
+posting billed at 8–20 hrs/week, which suggests an annualised rate rather
+than an annual salary — the same undeclared-periodicity defect seen at the
+low end, in the opposite direction. Neither was confirmed by manual
+`redirect_url` check.
+
+**Consequence for reporting:** the mixed-periodicity defect affects both
+tails. The minimum-wage threshold removes demonstrable contamination at the
+low end only; contamination above the threshold is indistinguishable from
+genuine figures and cannot be removed. Median is reported in preference to
+mean throughout, because the distribution is skewed and only 62 distinct
+values exist across 556 records.
 
 **Range validity — confirmed clean (2026-08-04):** `salary_min >
 salary_max` checked directly across all 951 postings — 0 violations.
 The paired salary fields are internally consistent wherever both are
 present.
 
-Full investigation trail in `data_lineage.md`, 2026-08-04 entry.
+Full investigation trail in `data_lineage.md`, 2026-08-04 entries.
 
 ## Reliability of text-based analysis (description field)
 
-This section documents a methodological decision, not just a data
-limitation, because the reasoning behind it matters for interpreting
-any future finding based on this field.
+**Superseded 2026-08-04.** The two-tier metric approach recorded on
+2026-07-06 — a primary high-confidence metric on `title`/`category` and a
+secondary exploratory metric on `description` — assumed the snippet carried
+usable text. Direct measurement shows it does not. The original reasoning is
+retained in `data_lineage.md`, 2026-07-06 entry.
 
-**Two distinct problems identified with `description`:**
+**Measured (2026-08-04, n=951):** `description` is truncated at a hard
+500-character ceiling. 814 postings (85.6%) sit at exactly 500 characters;
+mean length 485, minimum 142, maximum 500 with no exceptions. Only 137
+postings carry untruncated text.
 
-1. **Truncation:** Adzuna's free-tier API returns only a snippet of
-   the full job posting, confirmed via their official documentation.
-   There is no parameter to retrieve the complete text. Any
-   keyword-mention count (AI, governance, GDPR, DPO, etc.) based on
-   this field is necessarily a **lower bound**, not a complete count.
+**Why this ends the analysis rather than qualifying it:** 500 characters is
+roughly an opening paragraph. Technical requirements, certifications and
+regulatory references appear later in a real posting — in the portion that
+does not survive truncation. A term search over this field measures whether a
+term is prominent enough to appear in the lead text, not whether the role
+requires it.
 
-2. **Structural variability across employers:** manual review of the
-   raw data (July 6 2026) showed that companies structure job postings
-   very differently — some begin with company background, others with
-   values statements, others directly with technical requirements.
-   Since the snippet only captures the beginning of the text, what
-   survives truncation is not randomly distributed: it correlates with
-   each company's writing style, not necessarily with what the role
-   actually requires. This means keyword counts from this field could
-   partly reflect "which companies write postings in a get-to-the-point
-   style" rather than "which companies genuinely require this skill."
+The truncation is also non-random in the direction that matters: longer, more
+detailed postings — typically larger employers with more regulatory
+obligations — lose proportionally more text. Any prevalence figure would be a
+floor biased against precisely the terms the project set out to measure. The
+structural-variability problem identified on 2026-07-06 (companies open their
+postings differently, so what survives correlates with writing style) still
+applies, and compounds it.
 
-**Decision:** rather than discarding text-based analysis or treating it
-as equally reliable to structured-field analysis, this project reports
-it as two separate, explicitly labeled metrics:
+**Decision:** the planned analysis of AI Act, GDPR, data governance, DPO and
+data steward term prevalence is **dropped for Phase 1**. The secondary tier is
+not downgraded in confidence — it has no usable corpus. The limitation is the
+finding: this source does not permit measuring technical requirements from
+posting text.
 
-- **Primary metric (high confidence):** keyword mentions found in
-  `title` or `category` only — structured fields, low bias, but also
-  low recall (most postings won't mention "GDPR" in a job title).
-- **Secondary metric (exploratory):** keyword mentions found in the
-  `description` snippet — higher recall, but always reported with both
-  caveats above attached, and never presented as a definitive
-  percentage (e.g. avoid phrasing like "23% of postings mention AI";
-  prefer "at least 23% of postings show visible mentions of AI in the
-  available text").
+**Why the project does not collapse without it:** none of the other Phase 1
+dimensions (salary field presence, geographic distribution, market structure,
+posting staleness) depend on `description`. They rely on structured fields.
 
-**Why this field is not dropped entirely:** none of this project's
-other Phase 1 dimensions (salary opacity, top companies, geographic
-distribution) depend on `description` being reliable — they rely on
-structured fields instead. The observatory's core findings do not
-collapse if this one dimension carries a lower confidence label.
+**Phase 3 impact:** the planned language-bias analysis over posting
+descriptions is not viable from this endpoint either. It would require a
+different source, or scraping via `redirect_url` — which carries its own legal
+and ethical assessment under this project's own FRIA layer. Recorded so it is
+not rediscovered later.
