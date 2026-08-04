@@ -1,3 +1,20 @@
+-- 05_company_concentration.sql
+-- Purpose: employer volume and market structure.
+-- Outcome: a publishable employer ranking is NOT possible from this source.
+--          The two highest-volume names (15.9% of named postings) are a
+--          recruitment agency and an aggregator, not employers; 9.6% of
+--          postings carry no company at all; and below rank 3 volumes are
+--          indistinguishable from noise.
+-- Finding: 344 of 468 companies (73.5%) publish a single posting. Excluding
+--          intermediaries, no employer concentration is visible.
+-- Caveats: company names carry case and whitespace variants (474 raw
+--          spellings collapse to 468 normalised). The field also contains
+--          non-company values ("Madrid", 5 rows). Denominator is 860 named
+--          postings, not 951. 37 postings (3.9%) carry French-language titles;
+--          all are located in Spain — French-owned employers publishing in
+--          their corporate language, not postings from outside the universe.
+-- Source:  hr-observatory.raw.adzuna_postings_raw
+
 -- Top companies by posting volume. Two caveats are built into the query rather
 -- than left to the reader:
 --   1. Company names carry case and whitespace variants (6 normalisation keys
