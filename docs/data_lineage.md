@@ -149,7 +149,7 @@ without opening the file.
   so the documentary record and the git history agree.
 
 - **Script:** exploration notebook in `notebooks/`, using pure helper
-  functions in `src/support/exploration_utils.py` (`get_nested`,
+  functions in `src/support/parsing_utils.py` (`get_nested`,
   `classify`, `parse_filename`). Read-only over `data/raw/`; no
   transformation, no schema, no writes to raw.
 - **Action:** Measured field presence across all 20 raw files from the

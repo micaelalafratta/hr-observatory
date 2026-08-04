@@ -140,7 +140,7 @@ Planned governance work for later phases: MDM mapping between occupational taxon
 | Profiling      | Python + Pandas               |
 | Storage        | Google BigQuery (EU region)   |
 | Analysis       | SQL                           |
-| Visualisation  | Looker Studio *(planned)*     |
+| Visualisation  | Power BI *(planned)*          |
 | Documentation  | Markdown governance docs      |
 
 ---
@@ -158,10 +158,13 @@ Planned governance work for later phases: MDM mapping between occupational taxon
 │   └── analysis/       # numbered analysis queries, each with its caveats
 ├── notebooks/          # exploratory profiling
 ├── data/
-│   └── raw/            # immutable raw extractions (timestamped JSON)
-│       ├── reference/  # Adzuna category catalogue (inclusion-criteria evidence)
-│       └── discarded/  # early test extractions, kept for transparency
-├── docs/               # DAMA governance documentation
+│   ├── raw/             # immutable raw extractions (timestamped JSON)
+│   │   ├── reference/   # Adzuna category catalogue (inclusion-criteria evidence)
+│   │   └── discarded/   # early test extractions, kept for transparency
+│   ├── processed/       # reserved, currently empty — BigQuery loads directly
+│   │                    # from raw/, so no cleaning step sits between them yet
+│   └── README.md        # documents the raw/ vs processed/ split
+├── docs/                # DAMA governance documentation
 └── README.md
 ```
 

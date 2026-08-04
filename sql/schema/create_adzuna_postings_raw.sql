@@ -35,7 +35,7 @@ CREATE TABLE `hr-observatory.raw.adzuna_postings_raw`
 
   company STRING
     OPTIONS(description =
-      "Employer name as published. Absent in 91 of 951 records (9.57%): Adzuna omits the key entirely rather than returning null or an empty string. 474 distinct raw spellings, of which 6 normalisation keys carry more than one spelling (case and trailing-whitespace variants such as 'ERM' / 'Erm'), giving 468 distinct entities. Values are frequently recruitment agencies or aggregators rather than hiring employers: the two most frequent names account for 14.2% of all postings. Any 'top employers' analysis must declare this."),
+      "Employer name as published. Absent in 91 of 951 records (9.57%): Adzuna omits the key entirely rather than returning null or an empty string. 474 distinct raw spellings, of which 6 normalisation keys carry more than one spelling (case and trailing-whitespace variants such as 'ERM' / 'Erm'), giving 468 distinct entities. Values are frequently recruitment agencies or aggregators rather than hiring employers: the two most frequent names account for 14.4% of all postings (15.9% of the 860 named postings). Any 'top employers' analysis must declare this."),
 
   redirect_url STRING
     OPTIONS(description =
